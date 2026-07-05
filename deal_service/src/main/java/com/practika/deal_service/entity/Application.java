@@ -61,4 +61,5 @@ public class Application {
         this.monthlyPayment = monthlyPayment;
         this.status = "APPROVED";
     }
+
 }

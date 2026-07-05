@@ -2,11 +2,14 @@ package com.practika.deal_service.service;
 
 
 import com.practika.deal_service.entity.Client;
+import com.practika.deal_service.entity.Offer;
 import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.Period;
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 public class CreditCalculator {
@@ -50,6 +53,67 @@ public class CreditCalculator {
         }
 
         return approve(rate, payment);
+    }
+
+    public List<Offer> generateOffers(Client client, BigDecimal amount, int term) {
+        List<Offer> offers = new ArrayList<>();
+
+        boolean[][] combos = {
+                {false, false},
+                {false, true},
+                {true, false},
+                {true, true}
+        };
+
+        int priority = 1;
+        for (boolean[] combo : combos) {
+            boolean isInsurance = combo[0];
+            boolean isSalary = combo[1];
+
+            double rate = 15.0;
+            BigDecimal totalAmount = amount;
+
+            if (isInsurance) {
+                rate -= 3.0;
+                totalAmount = totalAmount.add(new BigDecimal("100000"));
+            }
+            if (isSalary) {
+                rate -= 1.0;
+            }
+
+            // Корректировки по возрасту
+            int age = getAge(client.getBirthDate());
+            if (age < 25) rate += 2.0;
+            else if (age > 55) rate += 1.0;
+            else rate -= 1.0;
+
+            // Корректировки по доходу
+            if (client.getMonthlyIncome().intValue() < 50000) rate += 3.0;
+            else if (client.getMonthlyIncome().intValue() > 150000) rate -= 2.0;
+
+            rate = Math.max(5.0, Math.min(30.0, rate));
+
+            BigDecimal payment = calculatePayment(totalAmount, rate, term);
+
+            Offer offer = new Offer();
+            offer.setAmount(totalAmount);
+            offer.setRate(BigDecimal.valueOf(rate));
+            offer.setMonthlyPayment(payment);
+            offer.setTerm(term);
+            offer.setIsInsuranceEnabled(isInsurance);
+            offer.setIsSalaryClient(isSalary);
+            offer.setPriority(priority);
+
+            String desc = (isInsurance ? "Со страховкой" : "Без страховки") +
+                    ", " + (isSalary ? "зарплатный клиент" : "обычный клиент") +
+                    ", ставка " + rate + "%";
+            offer.setDescription(desc);
+
+            offers.add(offer);
+            priority++;
+        }
+
+        return offers;
     }
 
     private int getAge(LocalDate birthDate) {
