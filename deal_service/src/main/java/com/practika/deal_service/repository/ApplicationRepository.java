@@ -1,7 +1,9 @@
 package com.practika.deal_service.repository;
 
 import com.practika.deal_service.entity.Application;
-import org.springframework.data.repository.CrudRepository;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
 
-public interface ApplicationRepository extends CrudRepository<Application,Long> {
+@Repository
+public interface ApplicationRepository extends JpaRepository<Application, Long> {
 }

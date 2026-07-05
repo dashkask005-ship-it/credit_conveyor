@@ -1,6 +1,5 @@
 package com.practika.deal_service.entity;
 
-
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -20,7 +19,6 @@ public class Credit {
     @OneToOne
     @JoinColumn(name = "application_id")
     private Application application;
-
 
     @Column(name = "amount")
     private BigDecimal amount;

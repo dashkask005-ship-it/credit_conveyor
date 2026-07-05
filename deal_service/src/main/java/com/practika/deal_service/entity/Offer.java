@@ -1,6 +1,5 @@
 package com.practika.deal_service.entity;
 
-
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
