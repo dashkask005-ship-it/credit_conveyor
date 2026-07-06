@@ -23,7 +23,6 @@ public class DealController {
 
     @PostMapping("/offer/select")
     public ResponseEntity<Credit> selectOffer(@RequestBody SelectOfferDTO request) {
-        Credit credit = dealService.selectOffer(request);
-        return ResponseEntity.ok(credit);
+        return ResponseEntity.ok(dealService.selectOffer(request));
     }
 }

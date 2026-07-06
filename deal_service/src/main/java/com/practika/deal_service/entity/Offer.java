@@ -1,6 +1,8 @@
 package com.practika.deal_service.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
@@ -8,7 +10,9 @@ import java.math.BigDecimal;
 @Entity
 @Table(name = "offers")
 @Data
+@Builder
 @NoArgsConstructor
+@AllArgsConstructor
 public class Offer {
 
     @Id
@@ -43,17 +47,5 @@ public class Offer {
     @Column(name = "priority")
     private Integer priority;
 
-    public Offer(Application application, BigDecimal amount, BigDecimal rate,
-                 BigDecimal monthlyPayment, Integer term, Boolean isInsuranceEnabled,
-                 Boolean isSalaryClient, String description, Integer priority) {
-        this.application = application;
-        this.amount = amount;
-        this.rate = rate;
-        this.monthlyPayment = monthlyPayment;
-        this.term = term;
-        this.isInsuranceEnabled = isInsuranceEnabled;
-        this.isSalaryClient = isSalaryClient;
-        this.description = description;
-        this.priority = priority;
-    }
+
 }
