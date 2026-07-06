@@ -1,14 +1,14 @@
 package com.practika.deal_service.service;
 
-
-
 import com.practika.deal_service.dto.ApplicationRequestDTO;
 import com.practika.deal_service.dto.ApplicationResponseDTO;
+import com.practika.deal_service.dto.NotificationRequestDTO;
 import com.practika.deal_service.dto.SelectOfferDTO;
 import com.practika.deal_service.entity.Application;
 import com.practika.deal_service.entity.Client;
 import com.practika.deal_service.entity.Credit;
 import com.practika.deal_service.entity.Offer;
+import com.practika.deal_service.integration.NotificationClient;
 import com.practika.deal_service.mapper.ApplicationMapper;
 import com.practika.deal_service.repository.ApplicationRepository;
 import com.practika.deal_service.repository.ClientRepository;
@@ -18,12 +18,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class DealService {
 
     private final ClientRepository clientRepository;
@@ -32,6 +34,7 @@ public class DealService {
     private final CreditRepository creditRepository;
     private final CreditCalculator calculator;
     private final ApplicationMapper mapper;
+    private final NotificationClient notificationClient;  // ← ДОБАВЛЕНО
 
     @Transactional
     public ApplicationResponseDTO createApplication(ApplicationRequestDTO request) {
@@ -66,12 +69,15 @@ public class DealService {
         application.setStatus(result.getStatus());
         application = applicationRepository.save(application);
 
-        // 6. Формируем ответ
+        sendNotification(client, application, result);
+
+        // 7. Формируем ответ
         ApplicationResponseDTO response = mapper.toResponseDTO(application);
         response.setMessage(result.getMessage());
 
         return response;
     }
+
     @Transactional
     public Credit selectOffer(SelectOfferDTO request) {
 
@@ -103,5 +109,22 @@ public class DealService {
         credit = creditRepository.save(credit);
 
         return credit;
+    }
+
+    private void sendNotification(Client client, Application application, CreditCalculator.CalculationResult result) {
+        try {
+            NotificationRequestDTO notification = new NotificationRequestDTO();
+            notification.setEmail(client.getEmail());
+            notification.setClientName(client.getFirstName() + " " + client.getLastName());
+            notification.setSubject("Статус заявки №" + application.getId());
+            notification.setMessage(result.getMessage());
+            notification.setStatus(result.getStatus());
+            notification.setApplicationId(application.getId());
+
+            notificationClient.sendEmail(notification);
+
+        } catch (Exception e) {
+            log.error("Ошибка отправки уведомления: {}", e.getMessage());
+        }
     }
 }
