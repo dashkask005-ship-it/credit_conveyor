@@ -31,7 +31,7 @@ public class DealController {
 
         log.info("Отправлен ответ: ID={}, статус={}", response.getId(), response.getStatus());
 
-        return ResponseEntity.ok(dealService.createApplication(request));
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/offer/select")
