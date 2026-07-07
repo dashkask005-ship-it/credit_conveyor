@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true" scanPeriod="30 seconds">
+
+    <!-- Переменные -->
+
+    <!-- Путь к логам -->
+    <property name="LOG_PATH" value="logs"/>
+
+    <!--
+        Паттерн для консоли (с цветами для удобства разработки)
+        %d - дата/время
+        %highlight - цветной уровень логирования
+        %thread - поток
+        %cyan - голубой цвет для имени логгера
+        %yellow - жёлтый цвет для requestId
+        %green - зелёный для applicationId
+        %magenta - пурпурный для operation
+        %msg - сообщение
+        %n - перенос строки
+    -->
+    <property name="CONSOLE_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) [%thread] %cyan(%logger{36}) %yellow([%X{requestId}]) %green([%X{applicationId}]) %magenta([%X{operation}]) - %msg%n"/>
+
+    <!--
+        Паттерн для файлов (без цветов, для продакшена)
+        ISO8601 формат даты для лучшей совместимости с инструментами
+    -->
+    <property name="FILE_PATTERN"
+              value="%d{ISO8601} %-5level [%thread] %logger{36} [%X{requestId}] [%X{applicationId}] [%X{clientId}] [%X{operation}] - %msg%n"/>
+
+    <!-- Настройки ротации -->
+    <property name="MAX_HISTORY" value="30"/>
+    <property name="TOTAL_SIZE_CAP" value="1GB"/>
+    <property name="MAX_FILE_SIZE" value="10MB"/>
+
+
+    <!-- Адаптеры (куда пишем) -->
+
+    <!-- 1. Консольный аппендер для разработки -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${CONSOLE_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- 2. Основной файловый аппендер -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <!-- Текущий файл -->
+        <file>${LOG_PATH}/deal-service.log</file>
+
+        <!-- Ротация: новый файл каждый день -->
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!-- Архивы сжимаются в gz -->
+            <fileNamePattern>${LOG_PATH}/archived/deal-service-%d{yyyy-MM-dd}.log.gz</fileNamePattern>
+            <maxHistory>${MAX_HISTORY}</maxHistory>
+            <totalSizeCap>${TOTAL_SIZE_CAP}</totalSizeCap>
+            <cleanHistoryOnStart>true</cleanHistoryOnStart>
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>${FILE_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- 3. Отдельный файл только для ERROR -->
+    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/deal-service-error.log</file>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/archived/deal-service-error-%d{yyyy-MM-dd}.log.gz</fileNamePattern>
+            <maxHistory>${MAX_HISTORY}</maxHistory>
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>${FILE_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+
+        <!-- Фильтр: только ERROR и выше -->
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+    </appender>
+
+    <!-- 4. Асинхронный аппендер (для производительности) -->
+    <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="FILE"/>
+        <queueSize>512</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <neverBlock>false</neverBlock>
+    </appender>
+
+
+    <!-- Логгеры (что и как логируем)                 -->
+
+    <!-- Ваш код: подробное логирование -->
+    <logger name="com.practika.deal_service" level="DEBUG"/>
+
+    <!-- SQL запросы Hibernate -->
+    <logger name="org.hibernate.SQL" level="DEBUG"/>
+
+    <!-- Параметры SQL запросов (TRACE = очень подробно) -->
+    <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="TRACE"/>
+
+    <!-- Транзакции Spring -->
+    <logger name="org.springframework.transaction" level="INFO"/>
+
+    <!-- Убираем шум от инфраструктуры -->
+    <logger name="org.springframework.web" level="INFO"/>
+    <logger name="org.springframework.boot" level="INFO"/>
+    <logger name="com.zaxxer.hikari" level="INFO"/>
+    <logger name="liquibase" level="INFO"/>
+    <logger name="org.hibernate.engine.transaction" level="INFO"/>
+
+
+    <!-- Корневой логгер -->
+
+    <!--
+        Spring Profile: dev (по умолчанию)
+        Пишем в консоль и в файлы
+    -->
+    <springProfile name="dev | default">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="ASYNC_FILE"/>
+            <appender-ref ref="ERROR_FILE"/>
+        </root>
+    </springProfile>
+
+    <!--
+        Spring Profile: prod
+        Только в файлы (консоль можно оставить для Docker)
+    -->
+    <springProfile name="prod">
+        <root level="WARN">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="ASYNC_FILE"/>
+            <appender-ref ref="ERROR_FILE"/>
+        </root>
+    </springProfile>
+
+</configuration>

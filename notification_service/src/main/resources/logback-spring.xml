@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true" scanPeriod="30 seconds">
+
+    <!-- ===== СВОЙСТВА ===== -->
+    <property name="LOG_PATH" value="logs"/>
+    <property name="LOG_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} [%X{applicationId}] - %msg%n"/>
+    <property name="MAX_HISTORY" value="30"/>
+
+    <!-- ===== КОНСОЛЬНЫЙ АППЕНДЕР ===== -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) [%thread] %cyan(%logger{36}) [%X{applicationId}] - %msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- ===== ОСНОВНОЙ ФАЙЛОВЫЙ АППЕНДЕР ===== -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/notification-service.log</file>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!-- Ежедневная ротация -->
+            <fileNamePattern>${LOG_PATH}/archived/notification-service-%d{yyyy-MM-dd}.log.gz</fileNamePattern>
+            <!-- Хранить 30 дней -->
+            <maxHistory>${MAX_HISTORY}</maxHistory>
+            <!-- Общий размер архивов -->
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- ===== ОТДЕЛЬНЫЙ ФАЙЛ ДЛЯ ОШИБОК ===== -->
+    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/notification-service-error.log</file>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/archived/notification-service-error-%d{yyyy-MM-dd}.log.gz</fileNamePattern>
+            <maxHistory>${MAX_HISTORY}</maxHistory>
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+
+        <!-- Только ERROR и выше -->
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+    </appender>
+
+    <!-- ===== АСИНХРОННЫЙ АППЕНДЕР ===== -->
+    <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="FILE"/>
+        <queueSize>512</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <neverBlock>false</neverBlock>
+    </appender>
+
+    <!-- ===== ЛОГГЕРЫ ===== -->
+
+    <!-- Логирование кода -->
+    <logger name="com.practika.notification_service" level="DEBUG"/>
+    <logger name="com.practika.notification_service.service" level="DEBUG"/>
+    <logger name="com.practika.notification_service.controller" level="DEBUG"/>
+
+    <!-- Логирование отправки почты -->
+    <logger name="org.springframework.mail" level="DEBUG"/>
+    <logger name="com.sun.mail" level="DEBUG"/>
+
+    <!-- HTTP запросы -->
+    <logger name="org.springframework.web" level="INFO"/>
+    <logger name="org.springframework.boot" level="INFO"/>
+
+    <!-- Корневой логгер -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="ASYNC_FILE"/>
+        <appender-ref ref="ERROR_FILE"/>
+    </root>
+
+</configuration>
