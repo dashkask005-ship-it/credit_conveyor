@@ -63,8 +63,9 @@
                     <configuration>
                         <source>17</source>
                         <target>17</target>
-                        <fork>true</fork>
-                        <executable>C:/Program Files/Java/jdk-17/bin/javac</executable>
+                        <!-- Убираем жёсткий путь к JDK -->
+                        <!-- <fork>true</fork> -->
+                        <!-- <executable>C:/Program Files/Java/jdk-17/bin/javac</executable> -->
                         <annotationProcessorPaths>
                             <path>
                                 <groupId>org.projectlombok</groupId>
