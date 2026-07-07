@@ -40,72 +40,60 @@ public class DealService {
 
     @Transactional
     public ApplicationResponseDTO createApplication(ApplicationRequestDTO request) {
+
         long startTime = System.currentTimeMillis();
 
-        // Устанавливаем контекст операции
         MdcUtil.setOperation("CREATE_APPLICATION");
         MdcUtil.setClientEmail(request.getEmail());
 
         log.info("Начало создания заявки: сумма={}, срок={} мес.", request.getAmount(), request.getTerm());
 
         try {
-            // 1. Сохраняем клиента
-            log.debug("Сохранение клиента в БД");
-            Client client = mapper.toClientEntity(request);
+            // 1. Клиент
+            Client client = mapper.toClient(request);
             client = clientRepository.save(client);
+
+            log.debug("Сохранение клиента в БД");
             MdcUtil.setClientId(client.getId());
             log.info("Клиент сохранен: ID:{}", client.getId());
 
-            // 2. Сохраняем заявку
-            log.debug("Создание заявки в БД");
-            Application application = mapper.toEntity(request);
-            application.setClient(client);
-            application.setStatus("NEW");
-            application.setRate(BigDecimal.ZERO);
-            application.setMonthlyPayment(BigDecimal.ZERO);
+            // 2. Заявка
+            Application application = mapper.toApplicationWithClient(client, request);
             application = applicationRepository.save(application);
 
             MdcUtil.setApplicationId(application.getId());
             log.info("Заявка создана: ID={}, статус=NEW", application.getId());
 
-            // 3. Генерируем 4 предложения
-            log.debug("Генерация кредитных предложений");
-            List<Offer> offers = calculator.generateOffers(client, request.getAmount(), request.getTerm());
-            for (Offer offer : offers) {
-                offer.setApplication(application);
-                Offer savedOffer = offerRepository.save(offer);
-
-                log.debug("Предложение {}: ставка={}%, платеж={}, страховка={}",
-                        savedOffer.getId(),
-                        offer.getRate(),
-                        offer.getMonthlyPayment(),
-                        offer.getIsInsuranceEnabled());
-            }
-            log.info("Сгенерировано {} предложений", offers.size());
-
-            // 4. Калькулятор для основного расчета
+            // 3. Калькулятор для основного расчета
             log.debug("Вычисление расчета кредита");
             CreditCalculator.CalculationResult result = calculator.calculate(
                     client, request.getAmount(), request.getTerm()
             );
 
-            // 5. Обновляем заявку
-            application.setRate(result.getRate());
-            application.setMonthlyPayment(result.getMonthlyPayment());
-            application.setStatus(result.getStatus());
-            application = applicationRepository.save(application);
-
             log.info("✓ Расчет завершен: статус={}, ставка={}%, платеж={}",
                     result.getStatus(), result.getRate(), result.getMonthlyPayment());
 
-            sendNotification(client, application, result);
+            // 4. Обновляем заявку результатами
+            mapper.updateApplicationWithResult(application, result);
+            application = applicationRepository.save(application);
 
-            // 7. Формируем ответ
-            ApplicationResponseDTO response = mapper.toResponseDTO(application);
-            response.setMessage(result.getMessage());
+            if (result.isApproved()) {
+                List<Offer> offers = calculator.generateOffers(client, request.getAmount(), request.getTerm());
+                mapper.setApplicationForOffers(offers, application);
+                offerRepository.saveAll(offers);
+                log.info("Создано {} предложений", offers.size());
+            } else {
+                log.info("Кредит не одобрен. Причина: {}", result.getMessage());
+            }
+
+            // 5. Отправляем уведомление
+            sendNotification(client, application, result);
 
             long executionTime = System.currentTimeMillis() - startTime;
             log.info("Заявка обработана за {} мс", executionTime);
+
+            // 6. Формируем ответ
+            ApplicationResponseDTO response = mapper.toApplicationResponseDTO(application, result.getMessage());
 
             return response;
 
@@ -119,10 +107,8 @@ public class DealService {
 
     @Transactional
     public Credit selectOffer(SelectOfferDTO request) {
-        long startTime = System.currentTimeMillis();
 
-        MdcUtil.setOperation("SELECT_OFFER");
-        MdcUtil.setApplicationId(request.getApplicationId());
+        long startTime = System.currentTimeMillis();
 
         log.info("Выбор предложения: applicationId={}, offerId={}", request.getApplicationId(), request.getOfferId());
 
@@ -134,7 +120,7 @@ public class DealService {
                         return new RuntimeException("Заявка не найдена");
                     });
 
-            if (application.getClient() != null){
+            if (application.getClient() != null) {
                 MdcUtil.setClientId(application.getClient().getId());
                 MdcUtil.setClientEmail(application.getClient().getEmail());
             }
@@ -154,25 +140,21 @@ public class DealService {
                     offer.getIsInsuranceEnabled(),
                     offer.getIsSalaryClient());
 
-            // 3. Обновляем заявку выбранным предложением
-            application.setAmount(offer.getAmount());
-            application.setRate(offer.getRate());
-            application.setMonthlyPayment(offer.getMonthlyPayment());
-            application.setStatus("APPROVED");
+            mapper.updateApplicationWithOffer(application, offer);
             application = applicationRepository.save(application);
 
             log.info("✓ Заявка обновлена: статус=APPROVED");
 
-            // 4. Создаем кредит
-            Credit credit = new Credit();
-            credit.setApplication(application);
-            credit.setAmount(offer.getAmount());
-            credit.setRate(offer.getRate());
-            credit.setMonthlyPayment(offer.getMonthlyPayment());
-            credit.setTerm(offer.getTerm());
-            credit.setTotalAmount(offer.getAmount().multiply(BigDecimal.valueOf(offer.getTerm())));
-            credit.setStatus("ISSUED");
-            credit.setIssueDate(LocalDate.now());
+            Credit credit = Credit.builder()
+                    .application(application)
+                    .amount(offer.getAmount())
+                    .rate(offer.getRate())
+                    .monthlyPayment(offer.getMonthlyPayment())
+                    .term(offer.getTerm())
+                    .totalAmount(offer.getAmount().multiply(BigDecimal.valueOf(offer.getTerm())))
+                    .status("ISSUED")
+                    .issueDate(LocalDate.now())
+                    .build();
             credit = creditRepository.save(credit);
 
             long executionTime = System.currentTimeMillis() - startTime;
@@ -185,8 +167,7 @@ public class DealService {
 
             return credit;
 
-        } catch (Exception e)
-        {
+        } catch (Exception e) {
             long executionTime = System.currentTimeMillis() - startTime;
             log.error("Ошибка выбора предложения через {} мс: {}", executionTime, e.getMessage());
 
@@ -195,24 +176,56 @@ public class DealService {
     }
 
     private void sendNotification(Client client, Application application, CreditCalculator.CalculationResult result) {
-
-        MdcUtil.setOperation("SEND_NOTIFICATION");
-
         try {
+            String subject;
+            String message;
 
-            NotificationRequestDTO notification = new NotificationRequestDTO();
-            notification.setEmail(client.getEmail());
-            notification.setClientName(client.getFirstName() + " " + client.getLastName());
-            notification.setSubject("Статус заявки №" + application.getId());
-            notification.setMessage(result.getMessage());
-            notification.setStatus(result.getStatus());
-            notification.setApplicationId(application.getId());
+            if (result.isApproved()) {
+                subject = "Кредит одобрен!";
+                message = String.format(
+                        "Уважаемый(ая) %s %s!\n\n" +
+                                "Ваша заявка №%d ОДОБРЕНА!\n\n" +
+                                "Условия кредита:\n" +
+                                "• Сумма: %.2f ₽\n" +
+                                "• Ставка: %.1f%%\n" +
+                                "• Ежемесячный платеж: %.2f ₽\n" +
+                                "• Срок: %d месяцев\n\n" +
+                                "С уважением,\nКоманда Кредитного конвейера",
+                        client.getFirstName(),
+                        client.getLastName(),
+                        application.getId(),
+                        application.getAmount(),
+                        application.getRate(),
+                        application.getMonthlyPayment(),
+                        application.getTerm()
+                );
+            } else {
+                subject = "Кредит не одобрен";
+                message = String.format(
+                        "Уважаемый(ая) %s %s!\n\n" +
+                                "К сожалению, Ваша заявка №%d НЕ ОДОБРЕНА.\n\n" +
+                                "Причина: %s\n\n" +
+                                "С уважением,\nКоманда Кредитного конвейера",
+                        client.getFirstName(),
+                        client.getLastName(),
+                        application.getId(),
+                        result.getMessage()
+                );
+            }
+
+            NotificationRequestDTO notification = NotificationRequestDTO.builder()
+                    .email(client.getEmail())
+                    .clientName(client.getFirstName() + " " + client.getLastName())
+                    .subject(subject)
+                    .message(message)
+                    .status(result.getStatus())
+                    .applicationId(application.getId())
+                    .build();
 
             notificationClient.sendEmail(notification);
-            log.info("Уведомление отправлено на {}", MdcUtil.getClientEmail());
 
         } catch (Exception e) {
-            log.error("Ошибка отправки уведомления: {}", e.getMessage());
+            log.error("⚠️ Ошибка отправки уведомления: {}", e.getMessage());
         }
     }
 }

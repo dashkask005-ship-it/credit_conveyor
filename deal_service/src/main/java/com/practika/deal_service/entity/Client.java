@@ -1,6 +1,8 @@
 package com.practika.deal_service.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
@@ -10,7 +12,9 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "clients")
 @Data
+@Builder
 @NoArgsConstructor
+@AllArgsConstructor
 public class Client {
 
     @Id
@@ -44,16 +48,4 @@ public class Client {
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    public Client(String firstName, String lastName, LocalDate birthDate,
-                  String email, String phone, Integer workExperience,
-                  BigDecimal monthlyIncome, String employmentType) {
-        this.firstName = firstName;
-        this.lastName = lastName;
-        this.birthDate = birthDate;
-        this.email = email;
-        this.phone = phone;
-        this.workExperience = workExperience;
-        this.monthlyIncome = monthlyIncome;
-        this.employmentType = employmentType;
-    }
 }

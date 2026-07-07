@@ -1,0 +1,13 @@
+databaseChangeLog:
+  - include:
+      file: 01-create-clients-table.sql
+      relativeToChangelogFile: true
+  - include:
+      file: 02-create-applications-table.sql
+      relativeToChangelogFile: true
+  - include:
+      file: 03-create-credits-table.sql
+      relativeToChangelogFile: true
+  - include:
+      file: 04-create-offers-table.sql
+      relativeToChangelogFile: true

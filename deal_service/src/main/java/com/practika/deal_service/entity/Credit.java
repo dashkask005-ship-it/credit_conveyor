@@ -1,6 +1,8 @@
 package com.practika.deal_service.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
@@ -9,7 +11,9 @@ import java.time.LocalDate;
 @Entity
 @Table(name = "credits")
 @Data
+@Builder
 @NoArgsConstructor
+@AllArgsConstructor
 public class Credit {
 
     @Id
@@ -41,29 +45,4 @@ public class Credit {
     @Column(name = "issue_date")
     private LocalDate issueDate;
 
-    public Credit(Application application, BigDecimal amount, BigDecimal rate,
-                  BigDecimal monthlyPayment, Integer term, BigDecimal totalAmount,
-                  String status, LocalDate issueDate) {
-        this.application = application;
-        this.amount = amount;
-        this.rate = rate;
-        this.monthlyPayment = monthlyPayment;
-        this.term = term;
-        this.totalAmount = totalAmount;
-        this.status = status;
-        this.issueDate = issueDate;
-    }
-
-    public Credit(Application application, BigDecimal amount, BigDecimal rate,
-                  BigDecimal monthlyPayment, Integer term, BigDecimal totalAmount,
-                  String status) {
-        this.application = application;
-        this.amount = amount;
-        this.rate = rate;
-        this.monthlyPayment = monthlyPayment;
-        this.term = term;
-        this.totalAmount = totalAmount;
-        this.status = status;
-        this.issueDate = LocalDate.now();
-    }
 }
