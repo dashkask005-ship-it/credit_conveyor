@@ -27,8 +27,8 @@
 
 ## Предварительные требования
 - Java 17 или выше
-- Maven 3.6+
-- PostgreSQL 12+
+- Maven 3.9+
+- PostgreSQL 15+
 - Учетная запись Gmail с паролем приложения для отправки уведомлений
 
 ## Архитектура проекта
@@ -47,13 +47,8 @@ git clone <repository-url>
 cd credit-conveyor
 ```
 
-### 2. Настройка базы данных
-Создайте базу данных PostgreSQL:
-```sql
-CREATE DATABASE credit_conveyor;
-```
 
-### 3. Настройка переменных окружения
+### 2. Настройка переменных окружения
 Создайте файл .env в корневой директории проекта (или укажите 
 переменные в вашей IDE) со следующими параметрами:
 ```env
@@ -69,6 +64,14 @@ MAIL_PASSWORD=your-app-password
 # URL для связи между сервисами (по умолчанию)
 NOTIFICATION_URL=http://localhost:8081
 ```
+
+### 3. Настройка Dokcker-copmose
+Установить Docker Desctop
+После выполнить команду:
+```bash
+docker compose up --build;
+```
+
 
 ### 4. Настройка Gmail App Password 
 1. Включите двухфакторную аутентификацию в своем аккаунте Google.
