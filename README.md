@@ -1,72 +1,95 @@
-# Email Microservice
+   # Кредитный конвейер
 
-A robust and scalable email microservice built with Spring Boot that provides asynchronous email sending capabilities through RabbitMQ integration and persistent email tracking.
+Мы вам представляем надежные и масштабируемые микросервисы кредитного конвейера - калькулятора и отправки уведомлений, 
+созданные с помощью Spring Boot. Он обеспечивает возможности отправления клиентами заявок 
+на оказание кредитной услуги, подбор доступных условий, которые выведет калькулятор, а также уведомления заявителей о результате .
 
-## Features
+## Особенности
 
-- **Asynchronous Email Processing**: Leverages RabbitMQ for message queuing and non-blocking email operations
-- **Email Tracking**: Comprehensive logging and status tracking for all sent emails
-- **RESTful API**: Clean REST endpoints for email management and monitoring
-- **Database Persistence**: Email records stored in MySQL with full audit trail
-- **Validation**: Robust input validation for email data
-- **Pagination Support**: Efficient data retrieval with pagination capabilities
-- **Error Handling**: Comprehensive error handling with detailed status reporting
+- **Автоматический скоринг**:  расчет кредитного рейтинга на основе возраста, дохода, стажа и других параметров
+- **Генерация офферов**: создание до 4 вариантов кредита с разными условиями (страховка, зарплатный клиент)
+- **Микросервисная архитектура**: 2 независимых сервиса (deal-service и notification-service) для гибкости и масштабирования
+- **Интеграция через OpenFeign**: синхронное взаимодействие между сервисами
+- **Управление миграциями**: автоматическое обновление схемы БД через Liquibase
+- **Документация API**: встроенный Swagger UI для тестирования и ознакомления с эндпоинтами
 
-## Technology Stack
+## Технологический стек
 
-- **Framework**: Spring Boot 3.5.3
-- **Language**: Java 17
-- **Database**: MySQL
-- **Message Broker**: RabbitMQ
-- **Email**: Spring Mail (SMTP)
-- **Validation**: Spring Validation
-- **ORM**: Spring Data JPA
-- **Build Tool**: Maven
-- **Additional**: Lombok, Spring AMQP
+- **Framework**: Spring Boot 3.2.0
+- **Язык**: Java 17
+- **База данных**: PostgreSQL
+- **Миграции**: Liquibase
+- **Взаимодействие**: Spring Cloud OpenFeign
+- **Маппинг**: MapStruct
+- **Документация API**: SpringDoc OpenAPI
+- **Сборка**: Maven
+- **Дополнительно**: Lombok, Spring Mail (SMTP)
 
-## Prerequisites
-
-- Java 17 or higher
+## Предварительные требования
+- Java 17 или выше
 - Maven 3.6+
-- MySQL 8.0+
-- RabbitMQ server
-- Gmail account with App Password (for SMTP)
+- PostgreSQL 12+
+- Учетная запись Gmail с паролем приложения для отправки уведомлений
 
-## Installation and Setup
+## Архитектура проекта
+Проект состоит из двух модулей:
 
-### 1. Clone the Repository
+- deal_service (Порт 8080): основной сервис, обрабатывающий заявки, 
+выполняющий скоринг и управляющий кредитными предложениями.
+- notification_service (Порт 8081): сервис уведомлений, 
+отвечающий за отправку email-писем клиентам.
+
+## Установка и настройка
+
+### 1. Клонирование репозитория
 ```bash
 git clone <repository-url>
-cd email-microservice
+cd credit-conveyor
 ```
 
-### 2. Database Setup
-Create a MySQL database:
+### 2. Настройка базы данных
+Создайте базу данных PostgreSQL:
 ```sql
-CREATE DATABASE `ms-email`;
+CREATE DATABASE credit_conveyor;
 ```
 
-### 3. Environment Configuration
-Create a `.env` file in the root directory with the following variables:
+### 3. Настройка переменных окружения
+Создайте файл .env в корневой директории проекта (или укажите 
+переменные в вашей IDE) со следующими параметрами:
 ```env
-MYSQL_HOST=localhost
-SPRING_MAIL_USERNAME=your-email@gmail.com
-SPRING_MAIL_PASSWORD=your-app-password
-SPRING_RABBITMQ_ADDRESSES=amqp://username:password@host:port/vhost
+# Настройки базы данных
+DB_URL=jdbc:postgresql://localhost:5432/credit_conveyor
+DB_USERNAME=your_username
+DB_PASSWORD=your_password
+
+# Настройки для notification_service
+MAIL_USERNAME=your-email@gmail.com
+MAIL_PASSWORD=your-app-password
+
+# URL для связи между сервисами (по умолчанию)
+NOTIFICATION_URL=http://localhost:8081
 ```
 
-### 4. Gmail App Password Setup
-1. Enable 2-Factor Authentication on your Gmail account
-2. Generate an App Password: https://support.google.com/accounts/answer/185833
-3. Use the generated App Password in your environment configuration
+### 4. Настройка Gmail App Password 
+1. Включите двухфакторную аутентификацию в своем аккаунте Google.
+2. Сгенерируйте пароль приложения: https://support.google.com/accounts/answer/185833
+3. Используйте сгенерированный пароль в переменной MAIL_PASSWORD.
 
-### 5. RabbitMQ Setup
-Set up a RabbitMQ instance:
-- **Local**: Install RabbitMQ locally
-- **Cloud**: Use CloudAMQP (https://www.cloudamqp.com/) for managed RabbitMQ
+### 5. Сборка и запуск
+```bash
+# Сборка всего проекта
+mvn clean install
+
+# Запуск deal_service (из папки deal_service)
+cd deal_service
+mvn spring-boot:run
+
+# Запуск notification_service (в отдельном терминале, из папки notification_service)
+cd ../notification_service
+mvn spring-boot:run
 
 ### 6. Build and Run
-```bash
+
 # Build the application
 mvn clean install
 
@@ -74,153 +97,164 @@ mvn clean install
 mvn spring-boot:run
 ```
 
-The application will start on `http://localhost:8080`
+После запуска сервисы будут доступны по адресам:
+- deal_service: http://localhost:8080
+- notification_service: http://localhost:8081
 
-## API Endpoints
+Swagger UI будет доступен по адресам:
+- http://localhost:8080/swagger-ui.html
+- http://localhost:8081/swagger-ui.html
 
-### Send Email
+# API Эндпоинты
+## Deal Service (Порт 8080)
+### Подача заявки на кредит
 ```http
-POST /sending-email
+POST /api/application
 Content-Type: application/json
 
 {
-    "ownerRef": "user123",
-    "emailFrom": "sender@example.com",
-    "emailTo": "recipient@example.com",
-    "subject": "Test Email",
-    "text": "This is a test email message."
+    "firstName": "Иван",
+    "lastName": "Петров",
+    "email": "ivan@example.com",
+    "phone": "+79991234567",
+    "workExperience": 5,
+    "monthlyIncome": 120000,
+    "birthDate": "1990-05-15",
+    "employmentType": "EMPLOYED",
+    "amount": 1000000,
+    "term": 24,
+    "purpose": "Покупка автомобиля"
 }
 ```
 
-### Get All Emails (Paginated)
+### Выбор кредитного предложения
+```POST /api/offer/select
+Content-Type: application/json
+
+{
+    "applicationId": 1,
+    "offerId": 2
+}
+```
+## Notification Service (Порт 8081)
+### Отправка уведомления (вызывается из deal_service)
 ```http
-GET /emails?page=0&size=10&sort=emailId,desc
+POST /api/notification/send
+Content-Type: application/json
+
+{
+    "email": "client@example.com",
+    "subject": "Ваш кредит одобрен",
+    "message": "Текст письма...",
+    "clientName": "Иван Петров",
+    "status": "APPROVED",
+    "applicationId": 1
+}
 ```
 
-### Get All Emails (Non-Paginated)
-```http
-GET /emails/all
-```
-
-### Get Email by ID
-```http
-GET /emails/{emailId}
-```
-
-## Response Examples
-
-### Successful Email Send
+## Примеры ответов
+### Успешная заявка (одобрена)
 ```json
 {
-    "emailId": "123e4567-e89b-12d3-a456-426614174000",
-    "ownerRef": "user123",
-    "emailFrom": "sender@example.com",
-    "emailTo": "recipient@example.com",
-    "subject": "Test Email",
-    "text": "This is a test email message.",
-    "sendDateEmail": "2024-01-15T10:30:00",
-    "statusEmail": "SENT"
+    "id": 1,
+    "amount": 1000000,
+    "term": 24,
+    "purpose": "Покупка автомобиля",
+    "status": "APPROVED",
+    "rate": 14.00,
+    "monthlyPayment": 47923.45,
+    "createdAt": "2024-01-15T10:30:00",
+    "clientName": "Иван Петров",
+    "clientEmail": "ivan@example.com",
+    "message": "Кредит одобрен! Ставка: 14.0%"
 }
 ```
 
-### Email List Response
+### Заявка с отказом
 ```json
 {
-    "content": [
-        {
-            "emailId": "123e4567-e89b-12d3-a456-426614174000",
-            "ownerRef": "user123",
-            "emailFrom": "sender@example.com",
-            "emailTo": "recipient@example.com",
-            "subject": "Test Email",
-            "text": "This is a test email message.",
-            "sendDateEmail": "2024-01-15T10:30:00",
-            "statusEmail": "SENT"
-        }
-    ],
-    "pageable": {
-        "sort": {
-            "sorted": true,
-            "unsorted": false
-        },
-        "pageNumber": 0,
-        "pageSize": 5
-    },
-    "totalElements": 1,
-    "totalPages": 1,
-    "last": true,
-    "first": true
+    "id": 2,
+    "amount": 1000000,
+    "term": 24,
+    "purpose": "Покупка автомобиля",
+    "status": "REJECTED",
+    "rate": 0.00,
+    "monthlyPayment": 0.00,
+    "createdAt": "2024-01-15T10:35:00",
+    "clientName": "Сергей Смирнов",
+    "clientEmail": "sergey@example.com",
+    "message": "Доход меньше 20 000 ₽"
 }
 ```
 
-## Architecture
+## Логика кредитного скоринга
+### Кредитные оценки
+- Возраст: 21–65 лет
+- Доход: минимум 20 000 ₽ 
+- Стаж работы: минимум 3 года
+- Платежеспособность: ежемесячный платеж не более 50% дохода
 
-The application follows a clean architecture pattern:
+## Корректировка процентной ставки
+- Возраст: до 25 лет (+2%), после 55 лет (+1%), иначе (-1%)
+- Доход: до 50 000 ₽ (+3%), более 150 000 ₽ (-2%)
+- Страховка: (-3% к ставке)
+- Зарплатный клиент: (-1% к ставке)
 
-```
-├── configs/          # Configuration classes
-├── controllers/      # REST API controllers
-├── consumers/        # RabbitMQ message consumers
-├── dtos/            # Data Transfer Objects
-├── enums/           # Enumeration classes
-├── models/          # JPA Entity classes
-├── repositories/    # Data access layer
-└── services/        # Business logic layer
-```
+## Генерация предложений
+Для одобренной заявки создаются 4 варианта кредита, комбинирующих:
+- Со страховкой / Без страховки
+- Зарплатный клиент / Обычный клиент
 
-## Message Flow
+## Управление миграциями
 
-1. **Direct API Call**: Client sends email via REST endpoint
-2. **Queue Processing**: Email messages consumed from RabbitMQ queue
-3. **Email Sending**: SMTP service processes and sends emails
-4. **Status Tracking**: Results stored in database with status updates
+Проект использует Liquibase для управления схемой БД. 
+Все изменения хранятся в папке deal_service/src/main/resources/db/changelog/:
+- 01-create-clients-table.sql
+- 02-create-applications-table.sql
+- 03-create-credits-table.sql
+- 04-create-offers-table.sql
+- cumulative-changelog.yaml (точка входа)
 
-## Email Status
+При запуске приложения миграции применяются автоматически.
 
-- **SENT**: Email successfully delivered
-- **ERROR**: Email failed to send (network issues, invalid credentials, etc.)
-
-## Configuration
-
-### Application Properties
-The application uses the following key configuration properties:
-
+## Конфигурация
+### Deal Service (application.properties)
 ```properties
-# Server Configuration
 server.port=8080
+spring.datasource.url=${DB_URL:jdbc:postgresql://localhost:5432/postgres}
+spring.datasource.username=${DB_USERNAME}
+spring.datasource.password=${DB_PASSWORD}
+spring.liquibase.change-log=classpath:db/changelog/cumulative-changelog.yaml
+services.notification.url=${NOTIFICATION_URL:http://localhost:8081}
+```
 
-# Database Configuration
-spring.datasource.url=jdbc:mysql://${MYSQL_HOST:localhost}:3306/ms-email
-spring.datasource.username=root
-spring.datasource.password=senha123@
-
-# JPA Configuration
-spring.jpa.hibernate.ddl-auto=update
-
-# Email Configuration
+### Notification Service (application.properties)
+```properties
+server.port=8081
 spring.mail.host=smtp.gmail.com
 spring.mail.port=587
-spring.mail.username=${SPRING_MAIL_USERNAME}
-spring.mail.password=${SPRING_MAIL_PASSWORD}
+spring.mail.username=${MAIL_USERNAME}
+spring.mail.password=${MAIL_PASSWORD}
 spring.mail.properties.mail.smtp.auth=true
 spring.mail.properties.mail.smtp.starttls.enable=true
-
-# RabbitMQ Configuration
-spring.rabbitmq.addresses=${SPRING_RABBITMQ_ADDRESSES}
-spring.rabbitmq.queue=ms.email
 ```
 
-## Security Considerations
+## Логирование
+Для отладки настроено детальное логирование:
+- com.practika.deal_service: DEBUG
+- org.hibernate.SQL: DEBUG
+- org.springframework.mail: DEBUG
 
-- Use App Passwords instead of regular Gmail passwords
-- Store sensitive configuration in environment variables
+## Тестирование
+Для запуска тестов выполните:
+```bash
 
-### Environment Variables
-Ensure all required environment variables are set in your production environment:
-- `MYSQL_HOST`
-- `SPRING_MAIL_USERNAME`
-- `SPRING_MAIL_PASSWORD`
-- `SPRING_RABBITMQ_ADDRESSES`
+mvn test
 
-### Database Migration
-The application uses `spring.jpa.hibernate.ddl-auto=update` which automatically creates and updates database tables based on entity changes.
+```
+## Планы по развитию
+- Асинхронная обработка через RabbitMQ/Kafka
+- Кэширование скоринговых моделей
+- Расширение критериев скоринга
+- Интеграция с внешними кредитными историями
+- Метрики и мониторинг (Prometheus + Grafana)
