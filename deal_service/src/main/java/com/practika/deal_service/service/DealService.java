@@ -21,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -42,15 +41,10 @@ public class DealService {
 
         // 1. Клиент
         Client client = mapper.toClient(request);
-        client.setCreatedAt(LocalDateTime.now());
         client = clientRepository.save(client);
 
         // 2. Заявка
         Application application = mapper.toApplicationWithClient(client, request);
-        application.setStatus("NEW");
-        application.setRate(BigDecimal.ZERO);
-        application.setMonthlyPayment(BigDecimal.ZERO);
-        application.setCreatedAt(LocalDateTime.now());
         application = applicationRepository.save(application);
 
         // 3. Калькулятор для основного расчета
@@ -59,19 +53,16 @@ public class DealService {
         );
 
         // 4. Обновляем заявку результатами
-        application.setRate(result.getRate());
-        application.setMonthlyPayment(result.getMonthlyPayment());
-        application.setStatus(result.getStatus());
+        mapper.updateApplicationWithResult(application, result);
         application = applicationRepository.save(application);
 
         if (result.isApproved()) {
             List<Offer> offers = calculator.generateOffers(client, request.getAmount(), request.getTerm());
-            for (Offer offer : offers) {
-                offer.setApplication(application);
-                offerRepository.save(offer);
-            }
+            mapper.setApplicationForOffers(offers, application);
+            offerRepository.saveAll(offers);
             log.info("Создано {} предложений", offers.size());
-        } else {
+            }
+         else {
             log.info("Кредит не одобрен. Причина: {}", result.getMessage());
         }
 
@@ -79,8 +70,7 @@ public class DealService {
         sendNotification(client, application, result);
 
         // 6. Формируем ответ
-        ApplicationResponseDTO response = mapper.toApplicationResponseDTO(application);
-        response.setMessage(result.getMessage());
+        ApplicationResponseDTO response = mapper.toApplicationResponseDTO(application, result.getMessage());
 
         return response;
     }
@@ -94,10 +84,7 @@ public class DealService {
         Offer offer = offerRepository.findById(request.getOfferId())
                 .orElseThrow(() -> new RuntimeException("Предложение не найдено"));
 
-        application.setAmount(offer.getAmount());
-        application.setRate(offer.getRate());
-        application.setMonthlyPayment(offer.getMonthlyPayment());
-        application.setStatus("APPROVED");
+        mapper.updateApplicationWithOffer(application, offer);
         application = applicationRepository.save(application);
 
         Credit credit = Credit.builder()
