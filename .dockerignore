@@ -1,0 +1,11 @@
+**/target/
+**/.git/
+**/.idea/
+**/*.iml/
+**/.mvn/
+**/logs/
+**/node_modules/
+**/dist/
+**/.env.local
+**/*.log
+**/.DS_Store
